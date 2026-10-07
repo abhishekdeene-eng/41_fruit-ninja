@@ -34,8 +34,19 @@ class GameEngine:
         gravity = 0.35
         kind = "bomb" if random.random() < self.bomb_chance else "fruit"
 
-        fruit = Fruit(x, self.height + 30, vx, vy, gravity, kind=kind)
-        fruit.color = BOMB_BLACK if kind == "bomb" else random.choice(FRUIT_COLORS)
+        fruit = Fruit(
+            x,
+            self.height + 30,
+            vx,
+            vy,
+            gravity,
+            kind=kind
+        )
+        fruit.color = (
+            BOMB_BLACK
+            if kind == "bomb"
+            else random.choice(FRUIT_COLORS)
+        )
         self.fruits.append(fruit)
 
     def handle_event(self, event):
@@ -71,6 +82,7 @@ class GameEngine:
 
     def _slice(self, fruit):
         fruit.sliced = True
+
         if fruit.kind == "bomb":
             self.game_over = True
         else:
@@ -86,28 +98,36 @@ class GameEngine:
             return
 
         self._spawn_timer += 1
+
         if self._spawn_timer >= self.spawn_interval:
             self._spawn_timer = 0
             self.spawn_fruit()
 
         still_alive = []
+
         for fruit in self.fruits:
             fruit.update()
+
             if fruit.sliced:
                 continue
+
             if fruit.off_screen(self.height):
                 if fruit.kind == "fruit":
                     self.lives -= 1
                 continue
+
             still_alive.append(fruit)
+
         self.fruits = still_alive
 
         if self.lives <= 0:
             self.game_over = True
 
     def render(self, screen):
+        # Draw fruits
         for fruit in self.fruits:
             color = getattr(fruit, "color", WHITE)
+
             pygame.draw.circle(
                 screen,
                 color,
@@ -115,16 +135,98 @@ class GameEngine:
                 fruit.radius
             )
 
+        # Draw swipe trail
         if len(self.trail) >= 2:
-            pygame.draw.lines(screen, WHITE, False, self.trail, 3)
+            pygame.draw.lines(
+                screen,
+                WHITE,
+                False,
+                self.trail,
+                3
+            )
 
-        score_text = self.font.render(f"Score: {self.score}", True, WHITE)
+        # Draw score
+        score_text = self.font.render(
+            f"Score: {self.score}",
+            True,
+            WHITE
+        )
         screen.blit(score_text, (10, 10))
 
-        lives_text = self.font.render(f"Lives: {self.lives}", True, WHITE)
-        screen.blit(lives_text, (self.width - 130, 10))
+        # Draw lives
+        lives_text = self.font.render(
+            f"Lives: {self.lives}",
+            True,
+            WHITE
+        )
+        screen.blit(
+            lives_text,
+            (self.width - 130, 10)
+        )
 
-        if self.game_over and not getattr(self, "_game_over_logged", False):
-            # NOTE: no proper game-over screen yet - see Task 2 in the README.
-            print("Game over! Final score:", self.score)
-            self._game_over_logged = True
+        # Game Over screen
+        if self.game_over:
+            # Dark transparent-style overlay
+            overlay = pygame.Surface(
+                (self.width, self.height),
+                pygame.SRCALPHA
+            )
+            overlay.fill((0, 0, 0, 180))
+            screen.blit(overlay, (0, 0))
+
+            # Game Over text
+            game_over_font = pygame.font.SysFont(
+                "Arial",
+                64,
+                bold=True
+            )
+            game_over_text = game_over_font.render(
+                "GAME OVER",
+                True,
+                WHITE
+            )
+
+            game_over_rect = game_over_text.get_rect(
+                center=(self.width // 2, self.height // 2 - 50)
+            )
+
+            screen.blit(
+                game_over_text,
+                game_over_rect
+            )
+
+            # Final score
+            final_score_font = pygame.font.SysFont(
+                "Arial",
+                32
+            )
+            final_score_text = final_score_font.render(
+                f"Final Score: {self.score}",
+                True,
+                WHITE
+            )
+
+            final_score_rect = final_score_text.get_rect(
+                center=(self.width // 2, self.height // 2 + 30)
+            )
+
+            screen.blit(
+                final_score_text,
+                final_score_rect
+            )
+
+            # Exit instruction
+            instruction_text = self.font.render(
+                "Close the window to exit",
+                True,
+                WHITE
+            )
+
+            instruction_rect = instruction_text.get_rect(
+                center=(self.width // 2, self.height // 2 + 80)
+            )
+
+            screen.blit(
+                instruction_text,
+                instruction_rect
+            )
