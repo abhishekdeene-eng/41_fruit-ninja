@@ -1,11 +1,17 @@
 import pygame
 import random
+import math
+import io
+import wave
+
 from .fruit import Fruit
+
 
 # Game Engine
 
 WHITE = (255, 255, 255)
 BOMB_BLACK = (30, 30, 30)
+
 FRUIT_COLORS = [
     (220, 60, 60),
     (230, 140, 40),
@@ -20,7 +26,7 @@ class GameEngine:
         self.height = height
 
         self.fruits = []
-        self.trail = []  # recent mouse positions, drawn as the "blade"
+        self.trail = []
 
         # Default difficulty
         self.difficulty = "Medium"
@@ -35,6 +41,79 @@ class GameEngine:
 
         self.font = pygame.font.SysFont("Arial", 28)
         self.game_over = False
+
+        # Sound effects
+        self.slice_sound = None
+        self.bomb_sound = None
+        self._setup_sounds()
+
+    def _create_tone(self, frequency, duration, volume):
+        """
+        Create a simple WAV tone in memory and return it
+        as a Pygame Sound object.
+        """
+
+        sample_rate = 44100
+        number_of_samples = int(sample_rate * duration)
+
+        audio_data = bytearray()
+
+        for i in range(number_of_samples):
+            time = i / sample_rate
+
+            # Fade the sound out toward the end.
+            fade = 1.0 - (i / number_of_samples)
+
+            sample = int(
+                32767
+                * volume
+                * fade
+                * math.sin(2 * math.pi * frequency * time)
+            )
+
+            audio_data += sample.to_bytes(
+                2,
+                byteorder="little",
+                signed=True
+            )
+
+        audio_file = io.BytesIO()
+
+        with wave.open(audio_file, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(audio_data)
+
+        audio_file.seek(0)
+
+        return pygame.mixer.Sound(file=audio_file)
+
+    def _setup_sounds(self):
+        """Create the sound effects used by the game."""
+
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+
+            # Short high-pitched sound for slicing fruit.
+            self.slice_sound = self._create_tone(
+                frequency=900,
+                duration=0.10,
+                volume=0.30
+            )
+
+            # Lower sound for bombs/game over.
+            self.bomb_sound = self._create_tone(
+                frequency=180,
+                duration=0.35,
+                volume=0.40
+            )
+
+        except pygame.error:
+            # If audio is unavailable, the game can still run normally.
+            self.slice_sound = None
+            self.bomb_sound = None
 
     def set_difficulty(self, difficulty):
         self.difficulty = difficulty
@@ -151,13 +230,21 @@ class GameEngine:
         fruit.sliced = True
 
         if fruit.kind == "bomb":
+            # Play bomb sound
+            if self.bomb_sound:
+                self.bomb_sound.play()
+
             self.game_over = True
+
         else:
+            # Play fruit slicing sound
+            if self.slice_sound:
+                self.slice_sound.play()
+
             self.score += 1
 
     def handle_input(self):
         # Reserved for continuously-held-key input.
-        # This game is primarily mouse-driven.
         pass
 
     def update(self):
@@ -189,7 +276,12 @@ class GameEngine:
         self.fruits = still_alive
 
         if self.lives <= 0:
+            self.lives = 0
             self.game_over = True
+
+            # Play game-over sound when all lives are lost.
+            if self.bomb_sound:
+                self.bomb_sound.play()
 
     def render(self, screen):
         # Draw fruits
