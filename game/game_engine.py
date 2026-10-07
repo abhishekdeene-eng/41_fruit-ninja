@@ -8,6 +8,7 @@ WHITE = (255, 255, 255)
 BOMB_BLACK = (30, 30, 30)
 FRUIT_COLORS = [(220, 60, 60), (230, 140, 40), (230, 200, 40), (90, 180, 90)]
 
+
 class GameEngine:
     def __init__(self, width, height):
         self.width = width
@@ -42,10 +43,27 @@ class GameEngine:
             self._handle_motion(event.pos)
 
     def _handle_motion(self, pos):
-        x, y = pos
+        previous_pos = self.trail[-1] if self.trail else pos
+
+        x1, y1 = previous_pos
+        x2, y2 = pos
+
         for fruit in self.fruits:
-            if not fruit.sliced and fruit.contains_point(x, y):
-                self._slice(fruit)
+            if fruit.sliced:
+                continue
+
+            # Check several points along the swipe segment
+            # so fast mouse movements cannot skip over a fruit.
+            steps = max(abs(x2 - x1), abs(y2 - y1), 1)
+
+            for i in range(steps + 1):
+                t = i / steps
+                x = x1 + (x2 - x1) * t
+                y = y1 + (y2 - y1) * t
+
+                if fruit.contains_point(x, y):
+                    self._slice(fruit)
+                    break
 
         self.trail.append(pos)
         if len(self.trail) > 15:
@@ -90,13 +108,19 @@ class GameEngine:
     def render(self, screen):
         for fruit in self.fruits:
             color = getattr(fruit, "color", WHITE)
-            pygame.draw.circle(screen, color, (int(fruit.x), int(fruit.y)), fruit.radius)
+            pygame.draw.circle(
+                screen,
+                color,
+                (int(fruit.x), int(fruit.y)),
+                fruit.radius
+            )
 
         if len(self.trail) >= 2:
             pygame.draw.lines(screen, WHITE, False, self.trail, 3)
 
         score_text = self.font.render(f"Score: {self.score}", True, WHITE)
         screen.blit(score_text, (10, 10))
+
         lives_text = self.font.render(f"Lives: {self.lives}", True, WHITE)
         screen.blit(lives_text, (self.width - 130, 10))
 
