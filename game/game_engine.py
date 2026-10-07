@@ -6,7 +6,12 @@ from .fruit import Fruit
 
 WHITE = (255, 255, 255)
 BOMB_BLACK = (30, 30, 30)
-FRUIT_COLORS = [(220, 60, 60), (230, 140, 40), (230, 200, 40), (90, 180, 90)]
+FRUIT_COLORS = [
+    (220, 60, 60),
+    (230, 140, 40),
+    (230, 200, 40),
+    (90, 180, 90)
+]
 
 
 class GameEngine:
@@ -17,22 +22,64 @@ class GameEngine:
         self.fruits = []
         self.trail = []  # recent mouse positions, drawn as the "blade"
 
-        self.spawn_interval = 55  # frames between spawns
+        # Default difficulty
+        self.difficulty = "Medium"
+
+        self.spawn_interval = 55
         self._spawn_timer = 0
         self.bomb_chance = 0.15
         self.speed_scale = 1.0
 
         self.lives = 3
         self.score = 0
+
         self.font = pygame.font.SysFont("Arial", 28)
         self.game_over = False
 
+    def set_difficulty(self, difficulty):
+        self.difficulty = difficulty
+
+        if difficulty == "Easy":
+            self.spawn_interval = 70
+            self.speed_scale = 0.8
+            self.bomb_chance = 0.08
+
+        elif difficulty == "Hard":
+            self.spawn_interval = 40
+            self.speed_scale = 1.2
+            self.bomb_chance = 0.25
+
+        else:
+            # Medium
+            self.spawn_interval = 55
+            self.speed_scale = 1.0
+            self.bomb_chance = 0.15
+
+    def reset_game(self, difficulty):
+        # Clear the old game state
+        self.fruits = []
+        self.trail = []
+
+        self._spawn_timer = 0
+        self.lives = 3
+        self.score = 0
+        self.game_over = False
+
+        # Apply selected difficulty
+        self.set_difficulty(difficulty)
+
     def spawn_fruit(self):
         x = random.randint(60, self.width - 60)
+
         vy = -random.uniform(13, 16) * self.speed_scale
         vx = random.uniform(-2, 2)
         gravity = 0.35
-        kind = "bomb" if random.random() < self.bomb_chance else "fruit"
+
+        kind = (
+            "bomb"
+            if random.random() < self.bomb_chance
+            else "fruit"
+        )
 
         fruit = Fruit(
             x,
@@ -42,16 +89,34 @@ class GameEngine:
             gravity,
             kind=kind
         )
+
         fruit.color = (
             BOMB_BLACK
             if kind == "bomb"
             else random.choice(FRUIT_COLORS)
         )
+
         self.fruits.append(fruit)
 
     def handle_event(self, event):
+        # Mouse movement for slicing
         if event.type == pygame.MOUSEMOTION:
             self._handle_motion(event.pos)
+
+        # Keyboard controls after Game Over
+        elif event.type == pygame.KEYDOWN and self.game_over:
+
+            # E = Easy
+            if event.key == pygame.K_e:
+                self.reset_game("Easy")
+
+            # M = Medium
+            elif event.key == pygame.K_m:
+                self.reset_game("Medium")
+
+            # H = Hard
+            elif event.key == pygame.K_h:
+                self.reset_game("Hard")
 
     def _handle_motion(self, pos):
         previous_pos = self.trail[-1] if self.trail else pos
@@ -69,6 +134,7 @@ class GameEngine:
 
             for i in range(steps + 1):
                 t = i / steps
+
                 x = x1 + (x2 - x1) * t
                 y = y1 + (y2 - y1) * t
 
@@ -77,6 +143,7 @@ class GameEngine:
                     break
 
         self.trail.append(pos)
+
         if len(self.trail) > 15:
             self.trail.pop(0)
 
@@ -89,8 +156,8 @@ class GameEngine:
             self.score += 1
 
     def handle_input(self):
-        # Reserved for continuously-held-key input; this game is
-        # entirely mouse-driven, so there's nothing to poll here.
+        # Reserved for continuously-held-key input.
+        # This game is primarily mouse-driven.
         pass
 
     def update(self):
@@ -114,6 +181,7 @@ class GameEngine:
             if fruit.off_screen(self.height):
                 if fruit.kind == "fruit":
                     self.lives -= 1
+
                 continue
 
             still_alive.append(fruit)
@@ -151,7 +219,11 @@ class GameEngine:
             True,
             WHITE
         )
-        screen.blit(score_text, (10, 10))
+
+        screen.blit(
+            score_text,
+            (10, 10)
+        )
 
         # Draw lives
         lives_text = self.font.render(
@@ -159,27 +231,49 @@ class GameEngine:
             True,
             WHITE
         )
+
         screen.blit(
             lives_text,
             (self.width - 130, 10)
         )
 
+        # Show current difficulty
+        difficulty_text = self.font.render(
+            f"Difficulty: {self.difficulty}",
+            True,
+            WHITE
+        )
+
+        screen.blit(
+            difficulty_text,
+            (10, 45)
+        )
+
         # Game Over screen
         if self.game_over:
-            # Dark transparent-style overlay
+
+            # Dark transparent overlay
             overlay = pygame.Surface(
                 (self.width, self.height),
                 pygame.SRCALPHA
             )
-            overlay.fill((0, 0, 0, 180))
-            screen.blit(overlay, (0, 0))
 
-            # Game Over text
+            overlay.fill(
+                (0, 0, 0, 180)
+            )
+
+            screen.blit(
+                overlay,
+                (0, 0)
+            )
+
+            # GAME OVER title
             game_over_font = pygame.font.SysFont(
                 "Arial",
                 64,
                 bold=True
             )
+
             game_over_text = game_over_font.render(
                 "GAME OVER",
                 True,
@@ -187,7 +281,10 @@ class GameEngine:
             )
 
             game_over_rect = game_over_text.get_rect(
-                center=(self.width // 2, self.height // 2 - 50)
+                center=(
+                    self.width // 2,
+                    self.height // 2 - 110
+                )
             )
 
             screen.blit(
@@ -200,6 +297,7 @@ class GameEngine:
                 "Arial",
                 32
             )
+
             final_score_text = final_score_font.render(
                 f"Final Score: {self.score}",
                 True,
@@ -207,7 +305,10 @@ class GameEngine:
             )
 
             final_score_rect = final_score_text.get_rect(
-                center=(self.width // 2, self.height // 2 + 30)
+                center=(
+                    self.width // 2,
+                    self.height // 2 - 40
+                )
             )
 
             screen.blit(
@@ -215,15 +316,56 @@ class GameEngine:
                 final_score_rect
             )
 
-            # Exit instruction
+            # Difficulty selection
+            choose_text = self.font.render(
+                "Choose difficulty:",
+                True,
+                WHITE
+            )
+
+            choose_rect = choose_text.get_rect(
+                center=(
+                    self.width // 2,
+                    self.height // 2 + 10
+                )
+            )
+
+            screen.blit(
+                choose_text,
+                choose_rect
+            )
+
+            # Difficulty options
+            options_text = self.font.render(
+                "E - Easy     M - Medium     H - Hard",
+                True,
+                WHITE
+            )
+
+            options_rect = options_text.get_rect(
+                center=(
+                    self.width // 2,
+                    self.height // 2 + 55
+                )
+            )
+
+            screen.blit(
+                options_text,
+                options_rect
+            )
+
+            # Replay instruction
             instruction_text = self.font.render(
-                "Close the window to exit",
+                "Press a key to replay",
                 True,
                 WHITE
             )
 
             instruction_rect = instruction_text.get_rect(
-                center=(self.width // 2, self.height // 2 + 80)
+                center=(
+                    self.width // 2,
+                    self.height // 2 + 100
+                )
             )
 
             screen.blit(
